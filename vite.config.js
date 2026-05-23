@@ -50,9 +50,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.svg', 'pwa-512x512.svg'],
       manifest: {
-        name: 'Botola PES',
-        short_name: 'PES',
-        description: 'Manage your PES tournament bracket and standings',
+        name: 'Botola PES-B-OR',
+        short_name: 'PES-B-OR',
+        description: 'Manage your PES-B-OR tournament bracket and standings',
         theme_color: '#0a0c10',
         background_color: '#0a0c10',
         display: 'standalone',
