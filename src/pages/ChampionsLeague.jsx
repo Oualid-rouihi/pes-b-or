@@ -135,16 +135,79 @@ const VisualBracket = ({ teams, matches }) => {
 };
 
 const ChampionsLeague = ({ isAdmin }) => {
-  const { teams, matches, generateChampionsLeague, updateMatchResult, addMatch } = useAppContext();
+  const { teams, matches, generateChampionsLeague, updateMatchResult, addMatch, resetChampionsLeague } = useAppContext();
   const [showModal, setShowModal] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [teamCount, setTeamCount] = useState(16);
+  const [setupMode, setSetupMode] = useState('settings'); // 'settings', 'manual'
+  const [manualPairings, setManualPairings] = useState([]);
 
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
   const [homePenalties, setHomePenalties] = useState(0);
   const [awayPenalties, setAwayPenalties] = useState(0);
   const [showPenalties, setShowPenalties] = useState(false);
+
+  const handleSetupManual = () => {
+    let P = 16;
+    if (teamCount <= 4) P = 4;
+    else if (teamCount <= 8) P = 8;
+    else if (teamCount <= 16) P = 16;
+    
+    const numMatches = P / 2;
+    const initialPairings = Array(numMatches).fill().map(() => ({ home: '', away: '' }));
+    setManualPairings(initialPairings);
+    setSetupMode('manual');
+  };
+
+  const updateManualPairing = (index, field, value) => {
+    const newPairings = [...manualPairings];
+    newPairings[index][field] = value;
+    setManualPairings(newPairings);
+  };
+
+  const handleStartManual = () => {
+    let P = 16;
+    if (teamCount <= 4) P = 4;
+    else if (teamCount <= 8) P = 8;
+    else if (teamCount <= 16) P = 16;
+
+    const numByes = P - teamCount;
+    
+    let selectedTeams = new Set();
+    let byesCount = 0;
+    
+    for (let p of manualPairings) {
+      if (!p.home || !p.away) {
+        alert("Please complete all matchups or select BYE.");
+        return;
+      }
+      if (p.home === p.away && p.home !== 'BYE') {
+        alert("A team cannot play against itself.");
+        return;
+      }
+      if (p.home === 'BYE') byesCount++;
+      else selectedTeams.add(p.home);
+      
+      if (p.away === 'BYE') byesCount++;
+      else selectedTeams.add(p.away);
+    }
+    
+    if (byesCount !== numByes) {
+      alert(`You must have exactly ${numByes} BYE(s). You have ${byesCount}.`);
+      return;
+    }
+    
+    if (selectedTeams.size !== parseInt(teamCount)) {
+      alert(`You must select exactly ${teamCount} distinct teams.`);
+      return;
+    }
+
+    if (window.confirm("Start tournament with these matchups?")) {
+      generateChampionsLeague(teamCount, manualPairings);
+      setSetupMode('settings');
+    }
+  };
 
   const clMatches = matches.filter(m => m.competition === 'champions');
   const hasStarted = clMatches.length > 0;
@@ -403,42 +466,94 @@ const ChampionsLeague = ({ isAdmin }) => {
         </p>
 
         {isAdmin && !hasStarted ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '12px 24px', borderRadius: '12px' }}>
-              <span style={{ fontWeight: 500 }}>Number of Teams:</span>
-              <input 
-                type="number" 
-                className="input-field" 
-                min="3" 
-                max="16" 
-                value={teamCount} 
-                onChange={(e) => setTeamCount(e.target.value)} 
-                style={{ width: '80px', textAlign: 'center', fontSize: '1.2rem', padding: '8px' }}
-              />
+          setupMode === 'settings' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '12px 24px', borderRadius: '12px' }}>
+                <span style={{ fontWeight: 500 }}>Number of Teams:</span>
+                <input 
+                  type="number" 
+                  className="input-field" 
+                  min="3" 
+                  max="16" 
+                  value={teamCount} 
+                  onChange={(e) => setTeamCount(e.target.value)} 
+                  style={{ width: '80px', textAlign: 'center', fontSize: '1.2rem', padding: '8px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  className="btn"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: '1.1rem', padding: '1rem 2rem' }}
+                  onClick={() => {
+                    if (window.confirm(`Are you sure? This will randomly draw ${teamCount} teams for the tournament. Any missing spots will be given as Byes.`)) {
+                      generateChampionsLeague(teamCount);
+                    }
+                  }}
+                >
+                  🎲 Random Setup
+                </button>
+                <button
+                  className="btn"
+                  style={{ background: '#fbbf24', color: '#000', fontSize: '1.1rem', padding: '1rem 2rem' }}
+                  onClick={handleSetupManual}
+                >
+                  ✏️ Manual Setup
+                </button>
+              </div>
             </div>
-            <button
-              className="btn"
-              style={{ background: '#fbbf24', color: '#000', fontSize: '1.1rem', padding: '1rem 2rem' }}
-              onClick={() => {
-                if (window.confirm(`Are you sure? This will randomly draw ${teamCount} teams for the tournament. Any missing spots will be given as Byes.`)) {
-                  generateChampionsLeague(teamCount);
-                }
-              }}
-            >
-              <Play size={20} fill="#000" /> Start Tournament
-            </button>
-          </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+              <h3 style={{ color: '#fbbf24', marginBottom: '1rem' }}>Configure Matchups</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem', textAlign: 'center' }}>
+                Select teams for each match. If you have less than 4, 8, or 16 teams, select "(BYE)" for the missing spots.
+              </p>
+              
+              {manualPairings.map((pairing, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px' }}>
+                  <span style={{ color: 'var(--text-muted)', width: '60px' }}>Match {idx + 1}</span>
+                  <select 
+                    className="input-field" 
+                    style={{ flex: 1 }}
+                    value={pairing.home}
+                    onChange={(e) => updateManualPairing(idx, 'home', e.target.value)}
+                  >
+                    <option value="">Select Team...</option>
+                    <option value="BYE">(BYE)</option>
+                    {teams.map(t => <option key={`h-${t.id}`} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <span style={{ fontWeight: 'bold' }}>VS</span>
+                  <select 
+                    className="input-field" 
+                    style={{ flex: 1 }}
+                    value={pairing.away}
+                    onChange={(e) => updateManualPairing(idx, 'away', e.target.value)}
+                  >
+                    <option value="">Select Team...</option>
+                    <option value="BYE">(BYE)</option>
+                    {teams.map(t => <option key={`a-${t.id}`} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              ))}
+              
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                <button className="btn btn-outline" onClick={() => setSetupMode('settings')}>Cancel</button>
+                <button className="btn" style={{ background: '#fbbf24', color: '#000' }} onClick={handleStartManual}>
+                  <Play size={20} fill="#000" /> Start Tournament
+                </button>
+              </div>
+            </div>
+          )
         ) : isAdmin && hasStarted ? (
           <button
             className="btn btn-outline"
             style={{ borderColor: 'rgba(251, 191, 36, 0.4)', color: '#fbbf24', fontSize: '0.9rem', padding: '0.5rem 1rem', marginTop: '1rem' }}
             onClick={() => {
-              if (window.confirm("Are you sure? This will reset any ongoing Champions League bracket and randomly draw the 16 teams.")) {
-                generateChampionsLeague();
+              if (window.confirm("Are you sure? This will delete the current bracket and allow you to set up a new one.")) {
+                resetChampionsLeague();
               }
             }}
           >
-            Restart Tournament
+            Reset Tournament
           </button>
         ) : null}
       </div>

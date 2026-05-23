@@ -93,10 +93,9 @@ export const AppProvider = ({ children }) => {
   };
 
   // Generate Champions League Bracket with auto-Byes for ANY number of teams
-  const generateChampionsLeague = async (inputTeamCount = 16) => {
-    const teamCount = parseInt(inputTeamCount);
-    if (teams.length < teamCount) {
-      alert(`You need at least ${teamCount} teams to start the Champions League!`);
+  const generateChampionsLeague = async (teamCount, manualPairings = null) => {
+    if (teams.length < 3) {
+      alert("You need at least 3 teams to start the Champions League.");
       return;
     }
     if (teamCount < 3 || teamCount > 16) {
@@ -115,15 +114,6 @@ export const AppProvider = ({ children }) => {
       else if (teamCount <= 8) P = 8;
       else if (teamCount <= 16) P = 16;
 
-      const numByes = P - teamCount;
-      const numNormalMatchups = (P / 2) - numByes;
-
-      // Randomize selected number of teams
-      const shuffled = [...teams].slice(0, teamCount).sort(() => 0.5 - Math.random());
-      
-      const teamsForByes = shuffled.slice(0, numByes);
-      const teamsForNormal = shuffled.slice(numByes);
-
       const newMatches = [];
       let startingStage = 'Round of 16';
       if (P === 8) startingStage = 'Quarter-finals';
@@ -131,74 +121,120 @@ export const AppProvider = ({ children }) => {
       
       let matchNumber = 0;
 
-      // Generate BYE matchups (Auto-wins)
-      for (let i = 0; i < numByes; i++) {
-        // Leg 1
-        newMatches.push({
-          id: uuidv4(),
-          competition: 'champions',
-          stage: startingStage,
-          matchNumber: matchNumber,
-          leg: 1,
-          homeTeamId: teamsForByes[i].id,
-          awayTeamId: 'BYE',
-          homeScore: 1, // Auto win
-          awayScore: 0,
-          homePenalties: 0,
-          awayPenalties: 0,
-          isPlayed: true // Already played
+      if (manualPairings) {
+        manualPairings.forEach((pairing) => {
+          const isBye = pairing.home === 'BYE' || pairing.away === 'BYE';
+          
+          // Leg 1
+          newMatches.push({
+            id: uuidv4(),
+            competition: 'champions',
+            stage: startingStage,
+            matchNumber: matchNumber,
+            leg: 1,
+            homeTeamId: pairing.home,
+            awayTeamId: pairing.away,
+            homeScore: pairing.away === 'BYE' ? 1 : 0, // Auto win if away is BYE
+            awayScore: pairing.home === 'BYE' ? 1 : 0, // Auto win if home is BYE
+            homePenalties: 0,
+            awayPenalties: 0,
+            isPlayed: isBye
+          });
+          // Leg 2
+          newMatches.push({
+            id: uuidv4(),
+            competition: 'champions',
+            stage: startingStage,
+            matchNumber: matchNumber,
+            leg: 2,
+            homeTeamId: pairing.away,
+            awayTeamId: pairing.home,
+            homeScore: 0,
+            awayScore: 0,
+            homePenalties: 0,
+            awayPenalties: 0,
+            isPlayed: isBye
+          });
+          matchNumber++;
         });
-        // Leg 2
-        newMatches.push({
-          id: uuidv4(),
-          competition: 'champions',
-          stage: startingStage,
-          matchNumber: matchNumber,
-          leg: 2,
-          homeTeamId: 'BYE',
-          awayTeamId: teamsForByes[i].id,
-          homeScore: 0,
-          awayScore: 0,
-          homePenalties: 0,
-          awayPenalties: 0,
-          isPlayed: true
-        });
-        matchNumber++;
-      }
+      } else {
+        const numByes = P - teamCount;
+        
+        // Randomize selected number of teams
+        const shuffled = [...teams].slice(0, teamCount).sort(() => 0.5 - Math.random());
+        
+        const teamsForByes = shuffled.slice(0, numByes);
+        const teamsForNormal = shuffled.slice(numByes);
 
-      // Generate Normal matchups
-      for (let i = 0; i < teamsForNormal.length; i += 2) {
-        // Leg 1
-        newMatches.push({
-          id: uuidv4(),
-          competition: 'champions',
-          stage: startingStage,
-          matchNumber: matchNumber,
-          leg: 1,
-          homeTeamId: teamsForNormal[i].id,
-          awayTeamId: teamsForNormal[i+1].id,
-          homeScore: 0,
-          awayScore: 0,
-          homePenalties: 0,
-          awayPenalties: 0,
-          isPlayed: false
-        });
-        // Leg 2
-        newMatches.push({
-          id: uuidv4(),
-          competition: 'champions',
-          stage: startingStage,
-          matchNumber: matchNumber,
-          leg: 2,
-          homeTeamId: teamsForNormal[i+1].id,
-          awayTeamId: teamsForNormal[i].id,
-          homeScore: 0,
-          awayScore: 0,
-          homePenalties: 0,
-          awayPenalties: 0,
-          isPlayed: false
-        });
-        matchNumber++;
+        // Generate BYE matchups (Auto-wins)
+        for (let i = 0; i < numByes; i++) {
+          // Leg 1
+          newMatches.push({
+            id: uuidv4(),
+            competition: 'champions',
+            stage: startingStage,
+            matchNumber: matchNumber,
+            leg: 1,
+            homeTeamId: teamsForByes[i].id,
+            awayTeamId: 'BYE',
+            homeScore: 1, // Auto win
+            awayScore: 0,
+            homePenalties: 0,
+            awayPenalties: 0,
+            isPlayed: true // Already played
+          });
+          // Leg 2
+          newMatches.push({
+            id: uuidv4(),
+            competition: 'champions',
+            stage: startingStage,
+            matchNumber: matchNumber,
+            leg: 2,
+            homeTeamId: 'BYE',
+            awayTeamId: teamsForByes[i].id,
+            homeScore: 0,
+            awayScore: 0,
+            homePenalties: 0,
+            awayPenalties: 0,
+            isPlayed: true
+          });
+          matchNumber++;
+        }
+
+        // Generate Normal matchups
+        for (let i = 0; i < teamsForNormal.length; i += 2) {
+          // Leg 1
+          newMatches.push({
+            id: uuidv4(),
+            competition: 'champions',
+            stage: startingStage,
+            matchNumber: matchNumber,
+            leg: 1,
+            homeTeamId: teamsForNormal[i].id,
+            awayTeamId: teamsForNormal[i+1].id,
+            homeScore: 0,
+            awayScore: 0,
+            homePenalties: 0,
+            awayPenalties: 0,
+            isPlayed: false
+          });
+          // Leg 2
+          newMatches.push({
+            id: uuidv4(),
+            competition: 'champions',
+            stage: startingStage,
+            matchNumber: matchNumber,
+            leg: 2,
+            homeTeamId: teamsForNormal[i+1].id,
+            awayTeamId: teamsForNormal[i].id,
+            homeScore: 0,
+            awayScore: 0,
+            homePenalties: 0,
+            awayPenalties: 0,
+            isPlayed: false
+          });
+          matchNumber++;
+        }
       }
 
       const { error: insertError } = await supabase.from('matches').insert(newMatches);
@@ -212,10 +248,21 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const resetChampionsLeague = async () => {
+    try {
+      const { error } = await supabase.from('matches').delete().eq('competition', 'champions');
+      if (error) throw error;
+      const filteredMatches = matches.filter(m => m.competition !== 'champions');
+      setMatches(filteredMatches);
+    } catch (err) {
+      console.error('Error resetting Champions League:', err);
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       teams, addTeam, updateTeam, deleteTeam, 
-      matches, addMatch, updateMatchResult, generateChampionsLeague 
+      matches, addMatch, updateMatchResult, generateChampionsLeague, resetChampionsLeague
     }}>
       {children}
     </AppContext.Provider>
