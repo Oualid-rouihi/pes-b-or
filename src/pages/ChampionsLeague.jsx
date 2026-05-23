@@ -6,8 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 const STAGES = ['Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'];
 
-const VisualBracket = ({ teams, matches }) => {
+const VisualBracket = ({ teams, matches, isAdmin, openModal }) => {
   if (!matches || matches.length === 0) return null;
+
+  const [activeSide, setActiveSide] = useState('A');
 
   const getMatchData = (stage, matchNum) => {
     const stageMatches = matches.filter(m => m.stage === stage && m.matchNumber === matchNum);
@@ -34,33 +36,114 @@ const VisualBracket = ({ teams, matches }) => {
     };
   };
 
-  const TeamCard = ({ team, score, isWinner }) => {
-    const isBye = team?.id === 'BYE';
+  const getActiveLeg = (stage, matchNum) => {
+    const stageMatches = matches.filter(m => m.stage === stage && m.matchNumber === matchNum);
+    if (stageMatches.length === 0) return null;
+    const leg1 = stageMatches.find(m => m.leg === 1) || stageMatches[0];
+    const leg2 = stageMatches.find(m => m.leg === 2);
+    
+    if (!leg1.isPlayed) return leg1;
+    if (leg2 && !leg2.isPlayed) return leg2;
+    return leg2 || leg1;
+  };
+
+  const handleCardClick = (stage, matchNum) => {
+    const activeLeg = getActiveLeg(stage, matchNum);
+    if (activeLeg && activeLeg.homeTeamId !== 'BYE' && activeLeg.awayTeamId !== 'BYE') {
+      openModal(activeLeg);
+    }
+  };
+
+  const BracketCard = ({ stage, matchNum, onClick }) => {
+    const { teamA, teamB, aggA, aggB, winnerId } = getMatchData(stage, matchNum);
+    const match = matches.find(m => m.stage === stage && m.matchNumber === matchNum);
+    
+    const isByeA = teamA?.id === 'BYE';
+    const isByeB = teamB?.id === 'BYE';
+    
+    const cursorStyle = (isAdmin && !isByeA && !isByeB) ? 'pointer' : 'default';
+    
     return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: isWinner ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255,255,255,0.05)',
-        border: isWinner ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-        padding: '0.25rem 0.5rem', borderRadius: '4px', width: '130px', height: '32px',
-        opacity: isBye ? 0.4 : 1
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-          {team && !isBye ? <img src={team.logo} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%' }} /> : null}
-          <span style={{ fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', fontStyle: isBye ? 'italic' : 'normal' }}>
-            {team ? team.name : 'TBD'}
-          </span>
+      <div className="new-bracket-card" style={{ cursor: cursorStyle }} onClick={onClick}>
+        <div className="new-bracket-card-teams">
+          {/* Team A */}
+          <div className={`new-bracket-team ${winnerId === teamA?.id ? 'is-winner' : ''}`}>
+            <span className="new-bracket-score">{isByeA ? '-' : (aggA !== null ? aggA : '-')}</span>
+            {teamA && !isByeA ? (
+              <img src={teamA.logo} alt="" className="new-bracket-logo" />
+            ) : (
+              <div className="new-bracket-logo-placeholder">{isByeA ? 'BYE' : '?'}</div>
+            )}
+            <span className="new-bracket-name">{teamA && !isByeA ? teamA.name : (isByeA ? 'BYE' : 'TBD')}</span>
+          </div>
+
+          {/* Divider */}
+          <div className="new-bracket-divider">vs</div>
+
+          {/* Team B */}
+          <div className={`new-bracket-team ${winnerId === teamB?.id ? 'is-winner' : ''}`}>
+            <span className="new-bracket-score">{isByeB ? '-' : (aggB !== null ? aggB : '-')}</span>
+            {teamB && !isByeB ? (
+              <img src={teamB.logo} alt="" className="new-bracket-logo" />
+            ) : (
+              <div className="new-bracket-logo-placeholder">{isByeB ? 'BYE' : '?'}</div>
+            )}
+            <span className="new-bracket-name">{teamB && !isByeB ? teamB.name : (isByeB ? 'BYE' : 'TBD')}</span>
+          </div>
         </div>
-        {!isBye && score !== null && <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{score}</span>}
+        
+        {/* Details/Action Link */}
+        <div className="new-bracket-details">
+          {match?.isPlayed ? 'Details' : (isAdmin ? 'Record ✏️' : 'Upcoming')}
+        </div>
       </div>
     );
   };
 
-  const MatchNode = ({ stage, matchNum }) => {
-    const { teamA, teamB, aggA, aggB, winnerId } = getMatchData(stage, matchNum);
+  const FinalBracketCard = ({ onClick }) => {
+    const { teamA, teamB, aggA, aggB, winnerId } = getMatchData('Final', 0);
+    const match = matches.find(m => m.stage === 'Final' && m.matchNumber === 0);
+    
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '6px', position: 'relative' }}>
-        <TeamCard team={teamA} score={aggA} isWinner={winnerId === teamA?.id} />
-        <TeamCard team={teamB} score={aggB} isWinner={winnerId === teamB?.id} />
+      <div className="new-bracket-card final-card" onClick={onClick}>
+        <div className="final-card-header">Championship Final</div>
+        <div className="final-card-body">
+          {/* Team A */}
+          <div className={`new-bracket-team ${winnerId === teamA?.id ? 'is-winner' : ''}`}>
+            {teamA ? (
+              <img src={teamA.logo} alt="" className="new-bracket-logo large" />
+            ) : (
+              <div className="new-bracket-logo-placeholder large">?</div>
+            )}
+            <span className="new-bracket-name">{teamA ? teamA.name : 'TBD'}</span>
+          </div>
+
+          {/* Center info */}
+          <div className="final-card-center">
+            {match?.isPlayed ? (
+              <div className="final-scores">
+                <span>{aggA}</span>
+                <span>-</span>
+                <span>{aggB}</span>
+              </div>
+            ) : (
+              <div className="final-vs">VS</div>
+            )}
+          </div>
+
+          {/* Team B */}
+          <div className={`new-bracket-team ${winnerId === teamB?.id ? 'is-winner' : ''}`}>
+            {teamB ? (
+              <img src={teamB.logo} alt="" className="new-bracket-logo large" />
+            ) : (
+              <div className="new-bracket-logo-placeholder large">?</div>
+            )}
+            <span className="new-bracket-name">{teamB ? teamB.name : 'TBD'}</span>
+          </div>
+        </div>
+        <div className="new-bracket-details">
+          {match?.isPlayed ? 'Champion Crowned!' : (isAdmin ? 'Record ✏️' : 'Upcoming')}
+        </div>
       </div>
     );
   };
@@ -71,64 +154,223 @@ const VisualBracket = ({ teams, matches }) => {
 
   return (
     <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'stretch', 
-      gap: '1.5rem', 
-      overflowX: 'auto', 
-      padding: '2rem 1rem', 
       marginBottom: '3rem',
       background: 'rgba(0,0,0,0.2)',
       borderRadius: '20px',
-      border: '1px solid rgba(255,255,255,0.1)'
+      border: '1px solid rgba(255,255,255,0.1)',
+      padding: '1.5rem 1rem'
     }}>
-      <div style={{ display: 'flex', minWidth: hasR16 ? '950px' : hasQuarters ? '700px' : '450px', justifyContent: 'space-between', gap: '1rem', width: '100%' }}>
-        {/* Left R16 */}
-        {hasR16 && (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem' }}>
-            {[0, 1, 2, 3].map(i => <MatchNode key={`R16L${i}`} stage="Round of 16" matchNum={i} />)}
-          </div>
-        )}
-        {/* Left QF */}
-        {hasQuarters && (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '2rem 0' }}>
-            {[0, 1].map(i => <MatchNode key={`QFL${i}`} stage="Quarter-finals" matchNum={i} />)}
-          </div>
-        )}
-        {/* Left SF */}
-        {hasSemis && (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '4rem 0' }}>
-            <MatchNode stage="Semi-finals" matchNum={0} />
-          </div>
-        )}
-        
-        {/* Center Final & Trophy */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '2rem', minWidth: '150px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Trophy size={64} color="#fbbf24" style={{ filter: 'drop-shadow(0 0 10px rgba(251, 191, 36, 0.5))' }} />
-            <div style={{ color: '#fbbf24', fontWeight: 800, marginTop: '0.5rem', letterSpacing: '2px', textTransform: 'uppercase' }}>FINAL</div>
-          </div>
-          <MatchNode stage="Final" matchNum={0} />
-        </div>
+      {/* Desktop Visual Bracket */}
+      <div className="bracket-desktop">
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'stretch', 
+          gap: '1.5rem', 
+          overflowX: 'auto', 
+        }}>
+          <div style={{ display: 'flex', minWidth: hasR16 ? '950px' : hasQuarters ? '700px' : '450px', justifyContent: 'space-between', gap: '1rem', width: '100%' }}>
+            {/* Left R16 */}
+            {hasR16 && (
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem' }}>
+                {[0, 1, 2, 3].map(i => (
+                  <BracketCard 
+                    key={`R16L${i}`} 
+                    stage="Round of 16" 
+                    matchNum={i} 
+                    onClick={() => handleCardClick("Round of 16", i)} 
+                  />
+                ))}
+              </div>
+            )}
+            {/* Left QF */}
+            {hasQuarters && (
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '2rem 0' }}>
+                {[0, 1].map(i => (
+                  <BracketCard 
+                    key={`QFL${i}`} 
+                    stage="Quarter-finals" 
+                    matchNum={i} 
+                    onClick={() => handleCardClick("Quarter-finals", i)} 
+                  />
+                ))}
+              </div>
+            )}
+            {/* Left SF */}
+            {hasSemis && (
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '4rem 0' }}>
+                <BracketCard stage="Semi-finals" matchNum={0} onClick={() => handleCardClick("Semi-finals", 0)} />
+              </div>
+            )}
+            
+            {/* Center Final & Trophy */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '2rem', minWidth: '220px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Trophy size={64} color="#fbbf24" style={{ filter: 'drop-shadow(0 0 10px rgba(251, 191, 36, 0.5))' }} />
+                <div style={{ color: '#fbbf24', fontWeight: 800, marginTop: '0.5rem', letterSpacing: '2px', textTransform: 'uppercase' }}>FINAL</div>
+              </div>
+              <FinalBracketCard onClick={() => handleCardClick("Final", 0)} />
+            </div>
 
-        {/* Right SF */}
-        {hasSemis && (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '4rem 0' }}>
-            <MatchNode stage="Semi-finals" matchNum={1} />
+            {/* Right SF */}
+            {hasSemis && (
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '4rem 0' }}>
+                <BracketCard stage="Semi-finals" matchNum={1} onClick={() => handleCardClick("Semi-finals", 1)} />
+              </div>
+            )}
+            {/* Right QF */}
+            {hasQuarters && (
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '2rem 0' }}>
+                {[2, 3].map(i => (
+                  <BracketCard 
+                    key={`QFR${i}`} 
+                    stage="Quarter-finals" 
+                    matchNum={i} 
+                    onClick={() => handleCardClick("Quarter-finals", i)} 
+                  />
+                ))}
+              </div>
+            )}
+            {/* Right R16 */}
+            {hasR16 && (
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem' }}>
+                {[4, 5, 6, 7].map(i => (
+                  <BracketCard 
+                    key={`R16R${i}`} 
+                    stage="Round of 16" 
+                    matchNum={i} 
+                    onClick={() => handleCardClick("Round of 16", i)} 
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
-        {/* Right QF */}
+        </div>
+      </div>
+
+      {/* Mobile Visual Bracket */}
+      <div className="bracket-mobile">
         {hasQuarters && (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem', padding: '2rem 0' }}>
-            {[2, 3].map(i => <MatchNode key={`QFR${i}`} stage="Quarter-finals" matchNum={i} />)}
+          <div className="bracket-side-tabs">
+            <button 
+              className={`bracket-side-tab ${activeSide === 'A' ? 'active' : ''}`}
+              onClick={() => setActiveSide('A')}
+            >
+              Side A
+            </button>
+            <button 
+              className={`bracket-side-tab ${activeSide === 'B' ? 'active' : ''}`}
+              onClick={() => setActiveSide('B')}
+            >
+              Side B
+            </button>
           </div>
         )}
-        {/* Right R16 */}
-        {hasR16 && (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '1rem' }}>
-            {[4, 5, 6, 7].map(i => <MatchNode key={`R16R${i}`} stage="Round of 16" matchNum={i} />)}
+
+        <div className="bracket-mobile-content">
+          {/* 1. Round of 16 */}
+          {hasR16 && (
+            <>
+              <div className="mobile-stage-title">Round of 16</div>
+              <div className="bracket-row">
+                {activeSide === 'A' ? (
+                  <>
+                    <BracketCard stage="Round of 16" matchNum={0} onClick={() => handleCardClick("Round of 16", 0)} />
+                    <BracketCard stage="Round of 16" matchNum={1} onClick={() => handleCardClick("Round of 16", 1)} />
+                    <BracketCard stage="Round of 16" matchNum={2} onClick={() => handleCardClick("Round of 16", 2)} />
+                    <BracketCard stage="Round of 16" matchNum={3} onClick={() => handleCardClick("Round of 16", 3)} />
+                  </>
+                ) : (
+                  <>
+                    <BracketCard stage="Round of 16" matchNum={4} onClick={() => handleCardClick("Round of 16", 4)} />
+                    <BracketCard stage="Round of 16" matchNum={5} onClick={() => handleCardClick("Round of 16", 5)} />
+                    <BracketCard stage="Round of 16" matchNum={6} onClick={() => handleCardClick("Round of 16", 6)} />
+                    <BracketCard stage="Round of 16" matchNum={7} onClick={() => handleCardClick("Round of 16", 7)} />
+                  </>
+                )}
+              </div>
+
+              {/* R16 to QF Connections */}
+              <div style={{ display: 'flex', width: '100%', height: '30px' }}>
+                <div style={{ width: '50%', height: '100%' }}>
+                  <svg width="100%" height="100%" viewBox="0 0 100 30" preserveAspectRatio="none">
+                    <path d="M 25,0 L 25,15 L 75,15 L 75,0 M 50,15 L 50,30" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
+                  </svg>
+                </div>
+                <div style={{ width: '50%', height: '100%' }}>
+                  <svg width="100%" height="100%" viewBox="0 0 100 30" preserveAspectRatio="none">
+                    <path d="M 25,0 L 25,15 L 75,15 L 75,0 M 50,15 L 50,30" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
+                  </svg>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* 2. Quarter-finals */}
+          {hasQuarters && (
+            <>
+              <div className="mobile-stage-title">Quarter Final</div>
+              <div className="bracket-row">
+                {activeSide === 'A' ? (
+                  <>
+                    <BracketCard stage="Quarter-finals" matchNum={0} onClick={() => handleCardClick("Quarter-finals", 0)} />
+                    <BracketCard stage="Quarter-finals" matchNum={1} onClick={() => handleCardClick("Quarter-finals", 1)} />
+                  </>
+                ) : (
+                  <>
+                    <BracketCard stage="Quarter-finals" matchNum={2} onClick={() => handleCardClick("Quarter-finals", 2)} />
+                    <BracketCard stage="Quarter-finals" matchNum={3} onClick={() => handleCardClick("Quarter-finals", 3)} />
+                  </>
+                )}
+              </div>
+
+              {/* QF to SF Connections */}
+              <div style={{ display: 'flex', width: '100%', height: '30px' }}>
+                <svg width="100%" height="100%" viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path d="M 25,0 L 25,15 L 75,15 L 75,0 M 50,15 L 50,30" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
+                </svg>
+              </div>
+            </>
+          )}
+
+          {/* 3. Semi-finals */}
+          {hasSemis && (
+            <>
+              <div className="mobile-stage-title yellow">Semi Final</div>
+              <div className="bracket-row">
+                {!hasQuarters ? (
+                  <>
+                    <BracketCard stage="Semi-finals" matchNum={0} onClick={() => handleCardClick("Semi-finals", 0)} />
+                    <BracketCard stage="Semi-finals" matchNum={1} onClick={() => handleCardClick("Semi-finals", 1)} />
+                  </>
+                ) : activeSide === 'A' ? (
+                  <BracketCard stage="Semi-finals" matchNum={0} onClick={() => handleCardClick("Semi-finals", 0)} />
+                ) : (
+                  <BracketCard stage="Semi-finals" matchNum={1} onClick={() => handleCardClick("Semi-finals", 1)} />
+                )}
+              </div>
+
+              {/* SF to Final Connection */}
+              <div style={{ display: 'flex', width: '100%', height: '30px' }}>
+                {!hasQuarters ? (
+                  <svg width="100%" height="100%" viewBox="0 0 100 30" preserveAspectRatio="none">
+                    <path d="M 25,0 L 25,15 L 75,15 L 75,0 M 50,15 L 50,30" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
+                  </svg>
+                ) : (
+                  <svg width="100%" height="100%" viewBox="0 0 100 30" preserveAspectRatio="none">
+                    <path d="M 50,0 L 50,30" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none" />
+                  </svg>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* 4. Final */}
+          <div className="mobile-stage-title green">Final</div>
+          <div className="bracket-row">
+            <FinalBracketCard onClick={() => handleCardClick("Final", 0)} />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -559,7 +801,7 @@ const ChampionsLeague = ({ isAdmin }) => {
       </div>
 
       {hasStarted && (
-        <VisualBracket teams={teams} matches={clMatches} />
+        <VisualBracket teams={teams} matches={clMatches} isAdmin={isAdmin} openModal={openModal} />
       )}
 
       {hasStarted && (
