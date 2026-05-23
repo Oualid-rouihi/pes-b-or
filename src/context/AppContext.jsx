@@ -259,10 +259,21 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const resetZalyjia = async () => {
+    try {
+      const { error } = await supabase.from('matches').delete().eq('competition', 'zalyjia');
+      if (error) throw error;
+      const filteredMatches = matches.filter(m => m.competition !== 'zalyjia');
+      setMatches(filteredMatches);
+    } catch (err) {
+      console.error('Error resetting Zalyjia:', err);
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       teams, addTeam, updateTeam, deleteTeam, 
-      matches, addMatch, updateMatchResult, generateChampionsLeague, resetChampionsLeague
+      matches, addMatch, updateMatchResult, generateChampionsLeague, resetChampionsLeague, resetZalyjia
     }}>
       {children}
     </AppContext.Provider>

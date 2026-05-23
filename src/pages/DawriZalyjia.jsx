@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { Trophy, Plus, Edit2 } from 'lucide-react';
 
 const DawriZalyjia = ({ isAdmin }) => {
-  const { teams, matches, addMatch, updateMatchResult } = useAppContext();
+  const { teams, matches, addMatch, updateMatchResult, resetZalyjia } = useAppContext();
   const [showModal, setShowModal] = useState(false);
   const [editingMatch, setEditingMatch] = useState(null);
   
@@ -123,9 +123,24 @@ const DawriZalyjia = ({ isAdmin }) => {
           <p style={{ color: 'var(--text-muted)' }}>The ultimate league leaderboard.</p>
         </div>
         {isAdmin && (
-          <button className="btn btn-primary" onClick={handleOpenAddModal}>
-            <Plus size={18} /> Record Match
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {zalyjiaMatches.length > 0 && (
+              <button 
+                className="btn btn-outline" 
+                style={{ borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }}
+                onClick={() => {
+                  if (window.confirm("Are you sure? This will delete all recorded match results in Dawri Zalyjia.")) {
+                    resetZalyjia();
+                  }
+                }}
+              >
+                Reset League
+              </button>
+            )}
+            <button className="btn btn-primary" onClick={handleOpenAddModal}>
+              <Plus size={18} /> Record Match
+            </button>
+          </div>
         )}
       </div>
 
