@@ -40,6 +40,35 @@ const dataPlugin = () => {
   }
 }
 
+import { VitePWA } from 'vite-plugin-pwa'
+
 export default defineConfig({
-  plugins: [react(), dataPlugin()],
+  plugins: [
+    react(), 
+    dataPlugin(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.svg', 'pwa-512x512.svg'],
+      manifest: {
+        name: 'Botola PES',
+        short_name: 'PES',
+        description: 'Manage your PES tournament bracket and standings',
+        theme_color: '#0a0c10',
+        background_color: '#0a0c10',
+        display: 'standalone',
+        icons: [
+          {
+            src: '/pwa-192x192.svg',
+            sizes: '192x192',
+            type: 'image/svg+xml'
+          },
+          {
+            src: '/pwa-512x512.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml'
+          }
+        ]
+      }
+    })
+  ],
 })
